@@ -102,11 +102,11 @@
         calc[planetKey].angle += 0.03 / calc[planetKey].radius
         // Camera loked to Earth
         if (planetKey === "Earth") {
-          const planetOffset = calc[planetKey].ref.position.clone().multiplyScalar(1.4)
-          camera.position.x = planetOffset.x;
-          camera.position.z = planetOffset.z;
+          //const planetOffset = calc[planetKey].ref.position.clone().multiplyScalar(1.4)
+          //camera.position.x = planetOffset.x;
+          //camera.position.z = planetOffset.z;
           //controls.target = calc[planetKey].ref.position;
-          controls.update();
+          //controls.update();
         }
       })
       renderer.render(scene, camera);
