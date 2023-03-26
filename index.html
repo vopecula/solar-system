@@ -5,6 +5,7 @@
   <meta charset="utf-8">
   <title>Solar System</title>
   <style>
+    html,
     body {
       margin: 0;
     }
@@ -46,11 +47,13 @@
 
     // Setup
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio)
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -69,7 +72,7 @@
       const theta = Math.random() * (Math.PI * 2);
       const spread = (Math.random() - 0.5) * 50
 
-      const s = new THREE.Spherical(250 + spread, phi, theta)
+      const s = new THREE.Spherical(500 + spread, phi, theta)
       const vec3 = new THREE.Vector3().setFromSpherical(s)
 
       const x = vec3.x
@@ -79,7 +82,7 @@
       vertices.push(x, y, z);
       vertices2.push(y, z, x);
     }
-    
+
     starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
     starsGeometry2.setAttribute('position', new THREE.Float32BufferAttribute(vertices2, 3))
     const starMaterial = new THREE.PointsMaterial({ color: '#cccccc' })
@@ -101,7 +104,13 @@
     // Add light
     const light = new THREE.PointLight(0xffffff);
     light.position.set(0, 0, 0);
+    light.castShadow = true;
     scene.add(light);
+
+    light.shadow.mapSize.width = 2048; // default
+    light.shadow.mapSize.height = 2048; // default
+    light.shadow.camera.near = 0.5; // default
+    light.shadow.camera.far = 500; // default
 
     const calc = {}
 
@@ -115,16 +124,48 @@
     }
 
     Object.keys(metrics).forEach((planetKey, i) => {
+      const planetRadius = .25 + (normalizePlanetSize(metrics[planetKey].radius) * 10)
       const planetTexture = new THREE.TextureLoader().load('textures/' + metrics[planetKey].texture);
-      const geometry = new THREE.SphereGeometry(.25 + (normalizePlanetSize(metrics[planetKey].radius) * 10), 64, 64)
-      const material = new THREE.MeshStandardMaterial({ 
+      const geometry = new THREE.SphereGeometry(planetRadius, 64, 64)
+      const material = new THREE.MeshStandardMaterial({
         map: planetTexture,
         normalMap: planetKey === "Earth" ? earth_normal_texture : null,
         roughnessMap: planetKey === "Earth" ? earth_specular_texture : null
-       });
-      const planet = new THREE.Mesh(geometry, material);
+      });
+      const planet = new THREE.Group();
+      const planetMesh = new THREE.Mesh(geometry, material);
+      planetMesh.castShadow = true; //default is false
+      planetMesh.receiveShadow = true; //default
+      planet.add(planetMesh)
+
+      if (planetKey === "Saturn") {
+        const ringText = new THREE.TextureLoader().load('textures/2k_saturn_ring_alpha.png');
+        const ringGeo = new THREE.RingGeometry(planetRadius * 1.3, planetRadius * 1.8, 128, 1);
+        var pos = ringGeo.attributes.position;
+        var v3 = new THREE.Vector3();
+        for (let i = 0; i < pos.count; i++) {
+          v3.fromBufferAttribute(pos, i);
+          ringGeo.attributes.uv.setXY(i, v3.length() < ((planetRadius * 1.5)) ? 0 : 1, 1);
+        }
+
+        
+        const ringMat = new THREE.MeshBasicMaterial({ map: ringText, transparent: true });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.castShadow = true; //default is false
+        ring.receiveShadow = true; //default
+        
+        ring.rotation.x = Math.PI / 2
+        const ring2 = ring.clone()
+        ring2.rotation.x = - (Math.PI / 2)
+        planet.add(ring);
+        planet.add(ring2);
+        planet.rotation.x = -0.4
+        planet.rotation.y = 2.4
+      }
+
       scene.add(planet);
-      const radius = (i + 1) * 15
+
+      const radius = (i + 1) * 30
       calc[planetKey] = {
         angle: Math.random() * (Math.PI * 2),
         radius: radius,
@@ -153,23 +194,24 @@
         calc[planetKey].ref.position.x = Math.cos(calc[planetKey].angle) * calc[planetKey].radius
         calc[planetKey].ref.position.z = Math.sin(calc[planetKey].angle) * calc[planetKey].radius
         calc[planetKey].angle += (delta) * (metrics[planetKey].angularVelocityAroundSunInSec) * (speedFactor)
-        if (planetKey === "Earth"){
+        if (planetKey === "Earth") {
           calc[planetKey].ref.rotation.y += (delta) * (metrics[planetKey].angularVelocityAroundSunInSec * 365) * (speedFactor)
           controls.target = calc[planetKey].ref.position;
           controls.update();
         }
         // Camera loked to Earth
-          //const planetOffset = calc[planetKey].ref.position.clone().multiplyScalar(1.4)
-          //camera.position.x = planetOffset.x;
-          //camera.position.z = planetOffset.z;
-          //controls.target = calc[planetKey].ref.position;
-          //controls.update();
+        //const planetOffset = calc[planetKey].ref.position.clone().multiplyScalar(1.4)
+        //camera.position.x = planetOffset.x;
+        //camera.position.z = planetOffset.z;
+        //controls.target = calc[planetKey].ref.position;
+        //controls.update();
       })
+
       renderer.render(scene, camera);
     }
     animate();
 
-   
+
 
   </script>
 </body>
