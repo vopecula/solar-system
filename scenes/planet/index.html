@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Solar System</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <script async src="https://ga.jspm.io/npm:es-module-shims@1.7.0/dist/es-module-shims.js"></script>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "OrbitControls": "https://unpkg.com/three@latest/examples/jsm/controls/OrbitControls.js"
+      }
+    }
+  </script>
+
+  <script id="vertexShader" type="x-shader/x-vertex">
+    uniform vec3 u_light_pos;
+    varying vec3 v_position;
+    varying vec3 v_normal;
+    varying vec3 v_light;
+    void main() {
+      vec4 n = vec4(normalMatrix * normal, 1.0) * modelViewMatrix;
+      vec4 l = vec4(normalMatrix * u_light_pos, 1.0) * modelViewMatrix;
+      v_light = normalize(l.xyz);
+      v_normal = normalize(n.xyz);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      v_position = gl_Position.xyz;
+    }
+  </script>
+  <script id="fragmentShader" type="x-shader/x-fragment">
+    uniform vec3 u_light_pos;
+    varying vec3 v_position;
+    varying vec3 v_normal;
+    varying vec3 v_light;
+
+    void main() {
+      gl_FragColor = vec4(vec3(dot(v_normal, v_light)), 1.0);
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'OrbitControls';
+
+    const normalizePlanetSize = (value) => {
+      const smallest = 2440, biggest = 69911 - 2440;
+      return (value - smallest) / biggest
+    }
+
+    // Utils
+    function makeStars(distance, quantity, color) {
+      const vertices = []
+      const starDistance = distance
+      for (let i = 0; i < quantity; i++) {
+        const theta = Math.PI * 2 * Math.random()
+        const phi = Math.PI * Math.random()
+        const radius = starDistance
+        const v = new THREE.Vector3().setFromSphericalCoords(radius, phi, theta)
+        vertices.push(v.x, v.y, v.z)
+      }
+      const starGeo = new THREE.BufferGeometry()
+      starGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
+      const starMat = new THREE.PointsMaterial({ color: color })
+      const stars = new THREE.Points(starGeo, starMat)
+      return stars
+    }
+
+    // Setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 2000);
+    camera.position.x = 10
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio)
+    document.body.appendChild(renderer.domElement);
+
+    const clock = new THREE.Clock()
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    //controls.autoRotate = true
+
+    // Light
+    const pointLight = new THREE.PointLight(0xffffff);
+    pointLight.position.set(0, 5, 0);
+    pointLight.castShadow = true;
+    scene.add(pointLight);
+
+    const uniforms = {
+      u_light_pos: new THREE.Uniform(pointLight.position),
+      u_albedo_map: new THREE.TextureLoader().load('../../textures/2k_earth_daymap.jpeg')
+    }
+
+    // Planet
+    const planetGeometry = new THREE.SphereGeometry(1, 128, 128)
+    const planetMaterial = new THREE.ShaderMaterial({
+      vertexShader: document.getElementById("vertexShader").textContent,
+      fragmentShader: document.getElementById("fragmentShader").textContent,
+      uniforms
+    })
+    const planetMesh = new THREE.Mesh(planetGeometry, planetMaterial)
+    scene.add(planetMesh)
+
+    // Stars
+    const blueStars = makeStars(2450, 500, '#4444bb')
+    const redStars = makeStars(2450, 500, '#aa4444')
+    const whiteStars = makeStars(150, 1000, '#aaaaaa')
+    scene.add(blueStars)
+    scene.add(redStars)
+    scene.add(whiteStars)
+
+    // Helpers
+    const pointLightHelper = new THREE.PointLightHelper(pointLight, .3);
+    scene.add(pointLightHelper);
+
+    // Render
+    let i = Math.PI * 2
+    function animate() {
+      let delta = clock.getDelta()
+      requestAnimationFrame(animate);
+      pointLight.position.set(Math.sin(i) * 10, 1,Math.cos(i) * 10)
+      uniforms.u_light_pos = new THREE.Uniform(new THREE.Vector3(Math.sin(i) * 10, 1,Math.cos(i) * 10))
+      controls.update()
+      renderer.render(scene, camera);
+      i -= .01
+    }
+    animate();
+  </script>
+</body>
+
+</html>
