@@ -59,8 +59,15 @@
       vec3 night = texture2D(u_night_map, v_uv).xyz;
 
       float brightness = dot(v_light, v_normal);
+      float nightLightStrength = 2.0; // 1.0 default
+      float dayNightBorderHardness = 3.0; // 1.0 default
 
-      gl_FragColor = vec4(((clouds + albedo) * brightness) + (night * -brightness), 1.0);
+      vec3 nightLight = clamp(night * nightLightStrength, 0.0, 1.0) * (1.0 - clamp((brightness * dayNightBorderHardness + 1.0) / 2.0, 0.0, 1.0));
+      nightLight = nightLight * (1.0 - clouds.z); // Add clouds to the night sky too
+      vec3 daylight = ((albedo * (1.0 - clouds.z)) + clouds) * brightness;
+
+      //gl_FragColor = vec4(vec3(clamp(brightness, 0.0, 1.0)  * 2.0), 1.0);
+      gl_FragColor = vec4((daylight + nightLight), 1.0);
     }
   </script>
 
@@ -104,7 +111,7 @@
     const clock = new THREE.Clock()
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    //controls.autoRotate = true
+    controls.autoRotate = true
 
     // Light
     const pointLight = new THREE.PointLight(0xffffff);
@@ -117,7 +124,7 @@
       u_albedo_map: new THREE.Uniform(new THREE.TextureLoader().load('../../textures/2k_earth_daymap.jpeg')),
       u_specular_map: new THREE.Uniform(new THREE.TextureLoader().load('../../textures/2k_earth_specular_map.jpeg')),
       u_clouds_map: new THREE.Uniform(new THREE.TextureLoader().load('../../textures/2k_earth_clouds.jpeg')),
-      u_night_map: new THREE.Uniform(new THREE.TextureLoader().load('../../textures/2k_earth_nightmap.jpeg')),
+      u_night_map: new THREE.Uniform(new THREE.TextureLoader().load('../../textures/8k_earth_nightmap.jpeg')),
     }
 
     // Planet
